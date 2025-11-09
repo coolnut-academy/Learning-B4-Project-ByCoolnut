@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทเรียน Voronoi → สมการ → JavaScript</title>
+  <!-- MathJax -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true,
+        processEnvironments: true
+      },
+      options: {
+        ignoreHtmlClass: 'tex2jax_ignore',
+        processHtmlClass: 'tex2jax_process'
+      },
+      svg: {
+        fontCache: 'global',
+        linebreaks: { automatic: true }
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+  <script>
+    // Make MathJax responsive after rendering
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.MathJax && window.MathJax.startup) {
+        MathJax.startup.promise = MathJax.startup.promise.then(function() {
+          // Force MathJax to be responsive
+          const mathElements = document.querySelectorAll('.MathJax, .MathJax_Display, mjx-container');
+          mathElements.forEach(function(el) {
+            el.style.maxWidth = '100%';
+            el.style.overflowX = 'auto';
+            el.style.overflowY = 'hidden';
+          });
+          return MathJax.startup.promise;
+        });
+      }
+    });
+  </script>
+  <style>
+    * {
+      scroll-behavior: smooth;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.7;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #1e40af 75%, #0c4a6e 100%);
+      background-size: 400% 400%;
+      animation: gradientShift 15s ease infinite;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      z-index: 0;
+    }
+    
+    main {
+      max-width: 1200px;
+      margin: 1rem auto;
+      background: rgba(255, 255, 255, 0.98);
+      padding: clamp(1rem, 3vw, 2rem) clamp(1rem, 3vw, 2.5rem) clamp(1.5rem, 4vw, 3rem);
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
+      position: relative;
+      z-index: 1;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      width: 100%;
+      max-width: min(1200px, calc(100% - 2rem));
+      overflow-x: hidden;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    h1 {
+      font-weight: 900;
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1rem;
+      line-height: 1.3;
+      text-align: center;
+      letter-spacing: -0.02em;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      hyphens: auto;
+    }
+    
+    h2 {
+      font-weight: 700;
+      font-size: clamp(1.4rem, 4vw, 1.9rem);
+      color: #1e293b;
+      margin-top: clamp(2rem, 4vw, 3rem);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 3px solid;
+      border-image: linear-gradient(90deg, #3b82f6, #1e40af) 1;
+      position: relative;
+      padding-left: 1rem;
+    }
+    
+    h2::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, #3b82f6, #1e40af);
+      border-radius: 2px;
+    }
+    
+    h3 {
+      font-weight: 600;
+      font-size: clamp(1.2rem, 3vw, 1.5rem);
+      color: #334155;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      padding-left: 0.75rem;
+      border-left: 4px solid #3b82f6;
+    }
+    
+    p {
+      color: #475569;
+      margin: 1.25rem 0;
+      font-size: clamp(0.95rem, 2vw, 1.1rem);
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      hyphens: auto;
+    }
+    
+    strong {
+      color: #1e293b;
+      font-weight: 600;
+    }
+    
+    pre {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      padding: clamp(1rem, 2vw, 1.5rem) clamp(1rem, 2vw, 1.5rem);
+      border-radius: 12px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      font-size: clamp(0.8rem, 1.5vw, 0.95rem);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.1);
+      position: relative;
+      margin: 1.5rem 0;
+      max-width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    
+    pre::before {
+      content: 'JavaScript';
+      position: absolute;
+      top: 0.75rem;
+      right: 1rem;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    code {
+      font-family: 'Fira Code', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: clamp(0.75rem, 1.5vw, 0.9rem);
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    
+    .note {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-left: 5px solid;
+      border-image: linear-gradient(180deg, #3b82f6, #1e40af) 1;
+      padding: clamp(1rem, 2vw, 1.5rem) clamp(1rem, 2vw, 1.5rem);
+      margin: 1.5rem 0;
+      border-radius: 0 12px 12px 0;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+      position: relative;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .note:hover {
+      transform: translateX(4px);
+      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.25);
+    }
+    
+    .note strong {
+      color: #1e40af;
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 1.05rem;
+    }
+    
+    .section {
+      margin-top: 3rem;
+      padding: clamp(1.5rem, 3vw, 2rem);
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 16px;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(102, 126, 234, 0.1);
+      max-width: 100%;
+      overflow-x: hidden;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    .section:hover {
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.1);
+      transform: translateY(-2px);
+    }
+    
+    ul, ol {
+      padding-left: clamp(1.25rem, 3vw, 1.75rem);
+      color: #475569;
+      max-width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    li {
+      margin: 0.75rem 0;
+      line-height: 1.8;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    ul li::marker {
+      color: #3b82f6;
+    }
+    
+    ol li::marker {
+      color: #1e40af;
+      font-weight: 600;
+    }
+    
+    .goal-box {
+      background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+      border: 2px solid #3b82f6;
+      padding: clamp(1rem, 2.5vw, 1.5rem);
+      border-radius: 12px;
+      margin: 2rem 0;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+      max-width: 100%;
+      overflow-x: hidden;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    .goal-box strong {
+      color: #1e40af;
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    
+    .math-formula {
+      background: rgba(59, 130, 246, 0.08);
+      padding: clamp(0.8rem, 2vw, 1.2rem);
+      border-radius: 8px;
+      margin: 1rem 0;
+      border-left: 3px solid #3b82f6;
+      overflow-x: auto;
+      overflow-y: hidden;
+      max-width: 100%;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    .math-formula p {
+      margin: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    
+    /* MathJax responsive */
+    .MathJax, mjx-container {
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      display: inline-block !important;
+    }
+    
+    .MathJax_Display, mjx-container[display="true"] {
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      display: block !important;
+    }
+    
+    mjx-container svg {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+    
+    .toc {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      padding: clamp(1rem, 2.5vw, 1.5rem);
+      border-radius: 16px;
+      margin: 2rem 0;
+      border: 2px solid rgba(59, 130, 246, 0.3);
+      max-width: 100%;
+      overflow-x: hidden;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    
+    .toc h3 {
+      margin-top: 0;
+      color: #3b82f6;
+      border: none;
+      padding: 0;
+    }
+    
+    .toc ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    
+    .toc li {
+      margin: 0.5rem 0;
+    }
+    
+    .toc a {
+      color: #475569;
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      display: block;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+      font-size: clamp(0.9rem, 2vw, 1rem);
+    }
+    
+    .toc a:hover {
+      background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), transparent);
+      color: #1e40af;
+      transform: translateX(8px);
+    }
+    
+    .demo-container {
+      margin: 2rem 0;
+      padding: clamp(1rem, 2vw, 1.5rem);
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border-radius: 16px;
+      border: 2px solid rgba(102, 126, 234, 0.2);
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    
+    canvas {
+      width: 100%;
+      max-width: 600px;
+      height: auto;
+      min-height: 250px;
+      aspect-ratio: 3/2;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      background: white;
+      display: block;
+      margin: 1rem auto;
+      cursor: crosshair;
+      object-fit: contain;
+    }
+    
+    .demo-controls {
+      text-align: center;
+      margin-top: 1rem;
+    }
+    
+    .demo-controls button {
+      background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+      color: white;
+      border: none;
+      padding: clamp(0.6rem, 2vw, 0.9rem) clamp(1.2rem, 3vw, 1.8rem);
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 0.5rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+      font-size: clamp(0.85rem, 2vw, 1rem);
+    }
+    
+    .demo-controls button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+    }
+    
+    .demo-controls button:active {
+      transform: translateY(0);
+    }
+    
+    .highlight {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    
+    .back-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+      color: white;
+      text-decoration: none;
+      padding: clamp(0.6rem, 2vw, 0.9rem) clamp(1rem, 2.5vw, 1.5rem);
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: clamp(0.85rem, 2vw, 1rem);
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      max-width: 100%;
+      word-wrap: break-word;
+      white-space: nowrap;
+    }
+    
+    .back-button::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s ease;
+    }
+    
+    .back-button:hover::before {
+      left: 100%;
+    }
+    
+    .back-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+    }
+    
+    .back-button:active {
+      transform: translateY(0);
+    }
+    
+    @media (max-width: 768px) {
+      body {
+        padding: 0.5rem;
+      }
+      
+      main {
+        margin: 0.5rem auto;
+        border-radius: 16px;
+        padding: 1rem;
+        max-width: calc(100% - 1rem);
+      }
+      
+      h1 {
+        font-size: clamp(1.3rem, 5vw, 2rem);
+        line-height: 1.4;
+      }
+      
+      h2 {
+        font-size: clamp(1.2rem, 4vw, 1.6rem);
+        padding-left: 0.75rem;
+      }
+      
+      h3 {
+        font-size: clamp(1rem, 3vw, 1.3rem);
+      }
+      
+      canvas {
+        min-height: 200px;
+        max-width: 100%;
+      }
+      
+      .demo-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      
+      .demo-controls button {
+        width: 100%;
+        font-size: 0.85rem;
+        padding: 0.6rem 1rem;
+      }
+      
+      .section {
+        padding: 1rem;
+      }
+      
+      .goal-box {
+        padding: 1rem;
+      }
+      
+      .toc {
+        padding: 1rem;
+      }
+      
+      .note {
+        padding: 1rem;
+      }
+      
+      pre {
+        font-size: 0.75rem;
+        padding: 0.75rem;
+        overflow-x: auto;
+      }
+      
+      code {
+        font-size: 0.75rem;
+      }
+      
+      .math-formula {
+        padding: 0.75rem;
+        overflow-x: auto;
+      }
+      
+      .back-button {
+        font-size: 0.85rem;
+        padding: 0.6rem 1rem;
+        white-space: normal;
+      }
+    }
+    
+    @media (min-width: 769px) and (max-width: 1024px) {
+      main {
+        max-width: min(95%, 1200px);
+        padding: clamp(1.5rem, 3vw, 2rem);
+      }
+      
+      canvas {
+        max-width: 100%;
+      }
+    }
+    
+    @media (min-width: 1025px) {
+      main {
+        max-width: min(1200px, calc(100% - 2rem));
+      }
+    }
+    
+    @media (max-width: 480px) {
+      body {
+        padding: 0.25rem;
+      }
+      
+      main {
+        padding: 0.75rem;
+        margin: 0.25rem auto;
+        border-radius: 12px;
+      }
+      
+      h1 {
+        font-size: 1.3rem;
+        line-height: 1.5;
+      }
+      
+      pre {
+        font-size: 0.7rem;
+        padding: 0.5rem;
+        overflow-x: auto;
+      }
+      
+      code {
+        font-size: 0.7rem;
+      }
+      
+      .math-formula {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+      }
+      
+      canvas {
+        min-height: 180px;
+      }
+    }
+    
+    /* Prevent horizontal scroll */
+    html {
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+    
+    /* MathJax responsive wrapper */
+    .MathJax_Display {
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      display: block !important;
+    }
+    
+    /* Ensure all inline math wraps */
+    .MathJax {
+      max-width: 100% !important;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <a href="index.html" class="back-button">
+    ← กลับหน้าหลัก
+  </a>
+  
+  <h1>บทเรียน: จากแผนภาพโวโรนอย (Voronoi Diagram) สู่การเขียนโค้ด JavaScript</h1>
+  
+  <div class="goal-box">
+    <strong>🎯 เป้าหมายการเรียนรู้</strong>
+    <p style="margin: 0; color: #78350f;">ปูจากภาพ → สมการ → จุดยอด (vertex) → โค้ด</p>
+  </div>
+  
+  <div class="toc">
+    <h3>📚 สารบัญ</h3>
+    <ul>
+      <li><a href="#intro">1. ปัญหาตั้งต้น</a></li>
+      <li><a href="#definition">2. นิยามโวโรนอยแบบคณิต</a></li>
+      <li><a href="#geo">3. ลองทำแบบเรขาคณิต (กรณี 3 จุด)</a></li>
+      <li><a href="#equations">4. ที่มาของสมการเส้นแบ่งโวโรนอย</a></li>
+      <li><a href="#vertex">5. จุดยอดโวโรนอย (Voronoi Vertex)</a></li>
+      <li><a href="#code">6. นำคณิตศาสตร์ไปเขียนเป็นโค้ด (JavaScript)</a></li>
+      <li><a href="#wrap">7. สรุปลำดับจากต้นจนจบ</a></li>
+    </ul>
+  </div>
+
+  <!-- ส่วนที่ 1 -->
+  <section class="section" id="intro">
+    <h2>1. ปัญหาตั้งต้น</h2>
+    <p>
+      สมมุติเราทำโปรเจกต์แจ้งเตือนน้ำท่วมให้หมู่บ้านหลายแห่ง เรามีหมู่บ้านเป็นจุดพิกัดบนแผนที่ และอยากแบ่งพื้นที่ว่า
+      "ตรงนี้ให้ฟังเซนเซอร์ตัวไหน" โดยยึดหลักว่า <span class="highlight">จุดบนแผนที่ควรถูกดูแลโดยจุดที่อยู่ใกล้ที่สุด</span>.
+    </p>
+    <p>
+      วิธีแบ่งพื้นที่ตามความใกล้แบบนี้ เรียกว่า <strong style="color: #1e40af; font-size: 1.1em;">แผนภาพโวโรนอย</strong> (Voronoi Diagram)
+    </p>
+    <div class="note">
+      <strong>💡 ตัวอย่างการใช้งานจริง:</strong>
+      Voronoi Diagram ใช้ในหลายๆ ด้าน เช่น การวางแผนตำแหน่งสถานีฐานมือถือ, การวิเคราะห์พื้นที่บริการ, 
+      การสร้าง procedural generation ในเกม, และการวิเคราะห์ข้อมูลทางภูมิศาสตร์
+    </div>
+  </section>
+
+  <!-- ส่วนที่ 2 -->
+  <section class="section" id="definition">
+    <h2>2. นิยามโวโรนอยแบบคณิต</h2>
+    <p>ให้มีจุดสำคัญ (เรียกว่า <span class="highlight">site</span>) อยู่บนระนาบ</p>
+    <div class="math-formula">
+      <p style="margin: 0; text-align: center;">
+        $$ S = \{p_1, p_2, \dots, p_n\} $$
+      </p>
+    </div>
+    <p>เซลล์โวโรนอยของจุด $p_i$ นิยามว่า</p>
+    <div class="math-formula">
+      <p style="margin: 0; text-align: center;">
+        $$ V(p_i) = \{ x \in \mathbb{R}^2 \mid d(x, p_i) \le d(x, p_j) \ \text{สำหรับทุก } j \ne i \} $$
+      </p>
+    </div>
+    <p>
+      <span class="highlight">แปลว่า:</span> จุดบนแผนที่ที่อยู่ใกล้ $p_i$ มากกว่าจุดอื่นทั้งหมด จะเป็นพื้นที่ของ $p_i$.
+    </p>
+    <div class="note">
+      <strong>โยงกับโปรเจกต์น้ำท่วม:</strong>
+      ถ้า $p_i$ คือจุดติดตั้งเซนเซอร์ น้ำท่วมในโซน $V(p_i)$ ก็ควรถูกแจ้งโดยเซนเซอร์ตัวนี้
+    </div>
+  </section>
+
+  <!-- ส่วนที่ 3 -->
+  <section class="section" id="geo">
+    <h2>3. ลองทำแบบเรขาคณิต (กรณี 3 จุด)</h2>
+    <p>สมมุติพิกัด 3 จุด:</p>
+    <ul>
+      <li>จุด 1 = $(0, 0)$</li>
+      <li>จุด 2 = $(6, 0)$</li>
+      <li>จุด 3 = $(3, 4)$</li>
+    </ul>
+    <p>ทำดังนี้:</p>
+    <ol>
+      <li>ปัก 3 จุดลงบนกระดาษกราฟ</li>
+      <li>จับเป็นคู่: (1,2), (1,3), (2,3)</li>
+      <li>สำหรับแต่ละคู่ ให้ลาก "เส้นแบ่งครึ่งตั้งฉาก" ของเส้นที่เชื่อมสองจุดนั้น</li>
+      <li>เมื่อวาดครบ 3 เส้น พื้นที่จะถูกแบ่งออกเป็น 3 ส่วน → นี่คือ Voronoi diagram ของ 3 จุด</li>
+    </ol>
+    
+    <div class="demo-container">
+      <h3 style="text-align: center; margin-top: 0;">🎨 ลองเล่นดู: คลิกเพื่อเพิ่มจุดและดู Voronoi Diagram</h3>
+      <canvas id="voronoiCanvas" width="600" height="400"></canvas>
+      <div class="demo-controls">
+        <button onclick="clearCanvas()">🗑️ ล้างทั้งหมด</button>
+        <button onclick="addDefaultPoints()">📍 เพิ่มจุดตัวอย่าง</button>
+        <button onclick="toggleVoronoi()">✨ แสดง/ซ่อน Voronoi</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ส่วนที่ 4 -->
+  <section class="section" id="equations">
+    <h2>4. ที่มาของสมการเส้นแบ่งโวโรนอย</h2>
+    <p>ถือว่าเป็น<span class="highlight">หัวใจของบทนี้</span> เพราะจากตรงนี้แหละที่เราไปเขียนโค้ดได้</p>
+
+    <h3>4.1 สมการระยะทาง</h3>
+    <p>ระยะทางระหว่างจุดสองจุดบนระนาบ:</p>
+    <div class="math-formula">
+      <p style="margin: 0; text-align: center;">
+        $$ d = \sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2} $$
+      </p>
+    </div>
+
+    <h3>4.2 ทำให้เป็น "เส้นแบ่งครึ่งระหว่างสองจุด"</h3>
+    <p>ให้</p>
+    <ul>
+      <li>$P_1 = (x_1, y_1)$</li>
+      <li>$P_2 = (x_2, y_2)$</li>
+      <li>จุดทั่วไปบนระนาบ = $(x, y)$</li>
+    </ul>
+    <p>ถ้าจุด $(x,y)$ อยู่บนเส้นแบ่งครึ่ง มันจะห่างจาก $P_1$ และ $P_2$ เท่ากัน:</p>
+    <div class="math-formula">
+      <p style="margin: 0; text-align: center;">
+        $$ \sqrt{(x - x_1)^2 + (y - y_1)^2} = \sqrt{(x - x_2)^2 + (y - y_2)^2} $$
+      </p>
+    </div>
+    <p>ยกกำลังสองทั้งสองข้าง:</p>
+    <div class="math-formula">
+      <p style="margin: 0; text-align: center;">
+        $$ (x - x_1)^2 + (y - y_1)^2 = (x - x_2)^2 + (y - y_2)^2 $$
+      </p>
+    </div>
+    <p>ขยายแล้วจัดรูป จะได้สมการเส้นตรง:</p>
+    <div class="math-formula">
+      <p style="margin: 0; text-align: center;">
+        $$ x(x_2 - x_1) + y(y_2 - y_1) = \frac{x_2^2 - x_1^2 + y_2^2 - y_1^2}{2} $$
+      </p>
+    </div>
+    <p><span class="highlight">นี่คือสมการของ "เส้นแบ่งเขตโวโรนอย" ระหว่างจุด 2 จุด</span></p>
+  </section>
+
+  <!-- ส่วนที่ 5 -->
+  <section class="section" id="vertex">
+    <h2>5. จุดยอดโวโรนอย (Voronoi Vertex)</h2>
+    <p>
+      ในกรณีที่มี 3 จุด และเส้นแบ่งครึ่ง 3 เส้นมาตัดกัน เราได้ “จุดที่อยู่ห่างจากทั้ง 3 จุดเท่ากัน” ซึ่งคือจุดยอดโวโรนอย.
+      จุดนี้คือจุดผู้สมัครที่ดีมากสำหรับการปักเซนเซอร์ เพราะแฟร์กับทั้ง 3 จุด
+    </p>
+    <p>ให้ 3 จุดเป็น</p>
+    <div class="math-formula">
+      <p style="margin: 0; text-align: center;">
+        $$ P_1 = (x_1, y_1), \quad P_2 = (x_2, y_2), \quad P_3 = (x_3, y_3) $$
+      </p>
+    </div>
+    <p>กำหนดตัวส่วนก่อน:</p>
+    <div class="math-formula">
+      <p style="margin: 0; text-align: center;">
+        $$ D = 2 \big( x_1 (y_2 - y_3) + x_2 (y_3 - y_1) + x_3 (y_1 - y_2) \big) $$
+      </p>
+    </div>
+    <p>แล้วจุดยอดโวโรนอย $(V_x, V_y)$ คือ</p>
+    <div class="math-formula">
+      <p style="margin: 0.5rem 0; text-align: center;">
+        $$ V_x = \frac{(x_1^2 + y_1^2)(y_2 - y_3) + (x_2^2 + y_2^2)(y_3 - y_1) + (x_3^2 + y_3^2)(y_1 - y_2)}{D} $$
+      </p>
+      <p style="margin: 0.5rem 0; text-align: center;">
+        $$ V_y = \frac{(x_1^2 + y_1^2)(x_3 - x_2) + (x_2^2 + y_2^2)(x_1 - x_3) + (x_3^2 + y_3^2)(x_2 - x_1)}{D} $$
+      </p>
+    </div>
+    <div class="note">
+      ที่มาของสูตรนี้คือ: เอาสมการเส้นแบ่งครึ่งของคู่ (1,2) กับ (1,3) มาแก้ระบบสมการเชิงเส้นพร้อมกัน (ใช้ Cramer's rule) แล้วจัดรูป
+    </div>
+  </section>
+
+  <!-- ส่วนที่ 6 -->
+  <section class="section" id="code">
+    <h2>6. นำคณิตศาสตร์ไปเขียนเป็นโค้ด (JavaScript)</h2>
+    <p>
+      ในภาคโปรแกรม เรามักจะไม่วาดเส้น แต่เราจะถามว่า “จุดนี้ใกล้จุดไหนที่สุด” ซึ่งตรงกับนิยามโวโรนอยเป๊ะ ๆ
+    </p>
+
+    <h3>6.1 เวอร์ชันพื้นฐาน: เทียบระยะแล้วเลือกที่ใกล้สุด</h3>
+    <p style="color: #64748b; font-style: italic;">💡 ตัวอย่างโค้ดที่ใช้หลักการ Voronoi แบบง่ายๆ</p>
+    <pre><code>// กำหนดจุดกำเนิด (sites) 3 จุด
+const sites = [
+  { name: "P1", x: 0, y: 0 },
+  { name: "P2", x: 6, y: 0 },
+  { name: "P3", x: 3, y: 4 },
+];
+
+// ฟังก์ชันระยะทางตามสูตรคณิต
+// d = sqrt( (x2 - x1)^2 + (y2 - y1)^2 )
+function distance(x1, y1, x2, y2) {
+  const dx = x2 - x1;          // ส่วนต่างแกน x
+  const dy = y2 - y1;          // ส่วนต่างแกน y
+  return Math.sqrt(dx*dx + dy*dy); // ถอดรากที่สอง
+}
+
+// จุดที่อยากรู้ว่าอยู่ในเขตของใคร
+const point = { x: 4, y: 1 };
+
+let nearestSite = null;
+let minDistance = Infinity;
+
+// วนเช็กทุกจุด แล้วเลือกตัวที่ระยะสั้นที่สุด
+for (const site of sites) {
+  const d = distance(point.x, point.y, site.x, site.y);
+  if (d &lt; minDistance) {
+    minDistance = d;
+    nearestSite = site;
+  }
+}
+
+console.log(
+  `จุด (${point.x}, ${point.y}) อยู่ใกล้ ${nearestSite.name} มากที่สุด ระยะ = ${minDistance.toFixed(2)}`
+);</code></pre>
+
+    <h3>6.2 เวอร์ชันเร็วขึ้น (ไม่ต้องถอดรูท)</h3>
+    <p style="color: #64748b; font-style: italic;">⚡ เทคนิคเพิ่มประสิทธิภาพ: เปรียบเทียบระยะกำลังสองแทน</p>
+    <pre><code>// เปรียบเทียบระยะกำลังสองแทน ถ้าจะเอาแค่ "ใครใกล้กว่า"
+function distanceSquared(x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  return dx*dx + dy*dy;   // ไม่ต้อง Math.sqrt
+}
+
+let nearest = null;
+let minD2 = Infinity;
+
+for (const site of sites) {
+  const d2 = distanceSquared(point.x, point.y, site.x, site.y);
+  if (d2 &lt; minD2) {
+    minD2 = d2;
+    nearest = site;
+  }
+}
+
+console.log(`(แบบเร็ว) จุดนี้ใกล้ ${nearest.name}`);</code></pre>
+
+    <h3>6.3 เวอร์ชันคำนวณจุดยอดโวโรนอยจาก 3 จุด</h3>
+    <p style="color: #64748b; font-style: italic;">🔢 นำสูตรคณิตศาสตร์จากส่วนที่ 5 มาแปลงเป็นโค้ด</p>
+    <pre><code>// ฟังก์ชันคำนวณ Voronoi vertex (circumcenter) จาก 3 จุด
+function voronoiVertex(p1, p2, p3) {
+  const x1 = p1.x, y1 = p1.y;
+  const x2 = p2.x, y2 = p2.y;
+  const x3 = p3.x, y3 = p3.y;
+
+  // ตัวส่วน D
+  const D = 2 * (
+    x1 * (y2 - y3) +
+    x2 * (y3 - y1) +
+    x3 * (y1 - y2)
+  );
+
+  if (D === 0) {
+    return null; // สามจุดอยู่เส้นตรงเดียวกัน
+  }
+
+  const x1sq_ysq = x1*x1 + y1*y1;
+  const x2sq_ysq = x2*x2 + y2*y2;
+  const x3sq_ysq = x3*x3 + y3*y3;
+
+  const Vx = (
+    x1sq_ysq * (y2 - y3) +
+    x2sq_ysq * (y3 - y1) +
+    x3sq_ysq * (y1 - y2)
+  ) / D;
+
+  const Vy = (
+    x1sq_ysq * (x3 - x2) +
+    x2sq_ysq * (x1 - x3) +
+    x3sq_ysq * (x2 - x1)
+  ) / D;
+
+  return { x: Vx, y: Vy };
+}
+
+// ทดลอง
+const v = voronoiVertex(
+  { x: 0, y: 0 },
+  { x: 6, y: 0 },
+  { x: 3, y: 4 }
+);
+
+console.log("Voronoi vertex =", v);</code></pre>
+  </section>
+
+  <!-- ส่วนที่ 7 -->
+  <section class="section" id="wrap">
+    <h2>7. สรุปลำดับจากต้นจนจบ</h2>
+    <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 2rem; border-radius: 16px; border: 2px solid rgba(102, 126, 234, 0.2);">
+      <ol style="font-size: 1.1rem;">
+        <li><strong>มีพิกัดจุดหลายจุด</strong> (หมู่บ้าน / เซนเซอร์)</li>
+        <li><strong>นิยามโวโรนอย</strong> ว่า "ใครใกล้ใครมากที่สุด"</li>
+        <li><strong>เขียนสมการระยะเท่ากัน</strong> ของจุด 2 จุด → ได้สมการเส้นตรง (เส้นแบ่งเขต)</li>
+        <li><strong>จุดตัดของเส้นแบ่งเขต 3 เส้น</strong> = จุดที่ห่างจาก 3 จุดเท่ากัน (Voronoi vertex)</li>
+        <li><strong>ในโปรแกรม</strong> ไม่จำเป็นต้องวาดเส้น ใช้การ "คำนวณระยะแล้วเลือกอันที่ใกล้ที่สุด" แทน</li>
+        <li><strong>แปลงสูตรระยะทาง</strong> เป็นฟังก์ชันใน JavaScript แล้ววนเทียบกับทุกจุด</li>
+      </ol>
+    </div>
+    <div class="note" style="margin-top: 2rem;">
+      <strong>🎉 ยินดีด้วย!</strong> ตอนนี้คุณเข้าใจ Voronoi Diagram จากภาพ → สมการ → โค้ดแล้ว ลองนำไปประยุกต์ใช้ในโปรเจกต์ของคุณดูนะ!
+    </div>
+  </section>
+
+</main>
+
+<script>
+  // Voronoi Canvas Demo
+  const canvas = document.getElementById('voronoiCanvas');
+  const ctx = canvas.getContext('2d');
+  let points = [];
+  let showVoronoi = true;
+  
+  // ตั้งค่า canvas size ให้ตรงกับ display size
+  function setupCanvas() {
+    // ตั้งค่า internal size (actual pixels) - ใช้ขนาดคงที่
+    const baseWidth = 600;
+    const baseHeight = 400;
+    
+    canvas.width = baseWidth;
+    canvas.height = baseHeight;
+    
+    // Canvas จะถูก scale โดย CSS (width: 100%, max-width: 600px)
+    // ไม่ต้องตั้งค่า style.width/height เพราะใช้ CSS แล้ว
+  }
+  
+  // สีที่มี contrast สูงและแตกต่างกันชัดเจน
+  const colors = [
+    '#3b82f6', // น้ำเงินเข้ม
+    '#ef4444', // แดง
+    '#10b981', // เขียว
+    '#f59e0b', // ส้ม
+    '#8b5cf6', // ม่วง
+    '#ec4899', // ชมพู
+    '#06b6d4', // ฟ้า
+    '#84cc16', // เขียวอ่อน
+    '#f97316', // ส้มเข้ม
+    '#6366f1', // ม่วงน้ำเงิน
+    '#14b8a6', // เขียวมรกต
+    '#dc2626'  // แดงเข้ม
+  ];
+  
+  function distanceSquared(x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    return dx * dx + dy * dy;
+  }
+  
+  function findNearestSite(x, y) {
+    let nearest = null;
+    let minDist = Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const dist = distanceSquared(x, y, points[i].x, points[i].y);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = i;
+      }
+    }
+    return nearest;
+  }
+  
+  function drawVoronoi() {
+    if (!showVoronoi || points.length === 0) return;
+    
+    const cellSize = 4;
+    for (let y = 0; y < canvas.height; y += cellSize) {
+      for (let x = 0; x < canvas.width; x += cellSize) {
+        const nearest = findNearestSite(x, y);
+        if (nearest !== null) {
+          // ใช้ opacity สูง (CC = 80% opacity) เพื่อให้สีเข้มและชัดเจน เห็นแต่ละพื้นที่แตกต่างกันชัดเจน
+          ctx.fillStyle = colors[nearest % colors.length] + 'CC';
+          ctx.fillRect(x, y, cellSize, cellSize);
+        }
+      }
+    }
+  }
+  
+  function drawPoints() {
+    points.forEach((point, i) => {
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(i + 1, point.x, point.y + 4);
+    });
+  }
+  
+  function redraw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (showVoronoi) {
+      drawVoronoi();
+    }
+    drawPoints();
+  }
+  
+  function getCanvasCoordinates(e) {
+    const rect = canvas.getBoundingClientRect();
+    // คำนวณ scale factor ระหว่าง display size (CSS) กับ internal size (actual pixels)
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    // แปลง mouse coordinates เป็น canvas coordinates
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    // จำกัดให้อยู่ในขอบเขต canvas
+    return {
+      x: Math.max(0, Math.min(canvas.width, x)),
+      y: Math.max(0, Math.min(canvas.height, y))
+    };
+  }
+  
+  // รอให้ canvas พร้อมก่อน
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setupCanvas();
+      canvas.addEventListener('click', handleCanvasClick);
+    });
+  } else {
+    setupCanvas();
+    canvas.addEventListener('click', handleCanvasClick);
+  }
+  
+  function handleCanvasClick(e) {
+    const coords = getCanvasCoordinates(e);
+    points.push({ x: coords.x, y: coords.y });
+    redraw();
+  }
+  
+  function clearCanvas() {
+    points = [];
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  
+  function addDefaultPoints() {
+    points = [
+      { x: 100, y: 200 },
+      { x: 500, y: 200 },
+      { x: 300, y: 100 }
+    ];
+    redraw();
+  }
+  
+  function toggleVoronoi() {
+    showVoronoi = !showVoronoi;
+    redraw();
+  }
+  
+  // Initialize - รอให้ DOM พร้อม
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setupCanvas();
+      window.addEventListener('resize', function() {
+        setupCanvas();
+        redraw();
+      });
+      redraw();
+    });
+  } else {
+    setupCanvas();
+    window.addEventListener('resize', function() {
+      setupCanvas();
+      redraw();
+    });
+    redraw();
+  }
+</script>
+
+</body>
+</html>
