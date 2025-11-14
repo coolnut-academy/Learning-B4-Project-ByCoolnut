@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>Least Squares Approximation กับจุดกึ่งกลางของ Voronoi เมื่อมี Seed มากกว่า 3 จุด</title>
+
+  <!-- MathJax -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script id="MathJax-script" async
+          src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+      background: #f5f7fb;
+      color: #222;
+    }
+    header {
+      background: linear-gradient(120deg, #0f4c75, #3282b8);
+      color: white;
+      padding: 1.8rem 1.5rem;
+    }
+    header h1 {
+      margin: 0 0 0.3rem 0;
+      font-size: 1.6rem;
+    }
+    header p {
+      margin: 0;
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+    main {
+      max-width: 900px;
+      margin: 1.5rem auto;
+      padding: 0 1rem 2rem;
+    }
+    section {
+      background: white;
+      margin-bottom: 1rem;
+      padding: 1.2rem 1.3rem;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(15, 76, 117, 0.05);
+    }
+    h2 {
+      font-size: 1.25rem;
+      margin-top: 0;
+      color: #0f4c75;
+    }
+    h3 {
+      font-size: 1.05rem;
+      margin-top: 1rem;
+      color: #1b262c;
+    }
+    .tag {
+      display: inline-block;
+      padding: 0.15rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: #e3f2fd;
+      color: #0f4c75;
+      margin-right: 0.4rem;
+    }
+    .example-box {
+      border-left: 4px solid #3282b8;
+      padding: 0.8rem 1rem;
+      margin: 0.7rem 0;
+      background: #f6fafe;
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+    .note {
+      font-size: 0.9rem;
+      color: #555;
+    }
+    code {
+      background: #f1f3f6;
+      padding: 0.1rem 0.25rem;
+      border-radius: 4px;
+      font-size: 0.88rem;
+    }
+    ol, ul {
+      padding-left: 1.3rem;
+    }
+    .formula {
+      text-align: center;
+      margin: 0.5rem 0;
+    }
+    .flex-2col {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+    }
+    .flex-2col > div {
+      flex: 1 1 250px;
+    }
+    footer {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #777;
+      padding-bottom: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Least Squares Approximation กับจุดกึ่งกลางของ Voronoi (กรณี Seed &gt; 3 จุด)</h1>
+    <p>ทำไมพอมี seed มากกว่า 3 จุดแล้วใช้วงกลมผ่านทุกจุดไม่ได้ และ Least Squares เข้ามาช่วยหาจุดกึ่งกลาง “เชิงประมาณ” ได้อย่างไร</p>
+  </header>
+
+  <main>
+    <!-- SECTION 1: ภาพรวม -->
+    <section>
+      <div class="tag">Voronoi</div>
+      <div class="tag">Least Squares</div>
+      <div class="tag">Optimization</div>
+      <h2>1. ภาพรวมของปัญหา</h2>
+      <p>
+        เมื่อเรามีจุด (seed) หลายจุดบนระนาบ เช่น ตำแหน่งหมู่บ้านหรือจุดติดตั้งเซนเซอร์
+        แนวคิดของ <b>Voronoi Diagram</b> จะช่วยแบ่งพื้นที่ออกเป็นเขต ๆ ตามความใกล้กับแต่ละ seed
+      </p>
+      <ul>
+        <li><b>กรณี 3 seed</b> – มีจุดหนึ่งที่อยู่ห่างจากทั้ง 3 จุดเท่ากันพอดี (จุดศูนย์กลางของวงกลมผ่าน 3 จุด) → เป็น Voronoi vertex แบบ <i>exact</i></li>
+        <li><b>กรณีมากกว่า 3 seed</b> – โดยทั่วไป <u>จะไม่มี</u> จุดที่อยู่ห่างจากทุกจุดเท่ากันจริง ๆ เพราะข้อมูลไม่ได้เรียงตัวบนวงกลมเดียวกันเป๊ะ</li>
+      </ul>
+
+      <p>
+        ในกรณีที่มี seed มากกว่า 3 จุด เราเลยเปลี่ยนคำถามจาก
+      </p>
+      <div class="example-box">
+        <b>คำถามเดิม (แบบเป๊ะ)</b><br>
+        หา $C$ ที่ทำให้ระยะ $\|C - P_i\|$ เท่ากันทุก $i$<br><br>
+        <b>คำถามใหม่ (แบบประมาณด้วย Least Squares)</b><br>
+        หา $C$ ที่ทำให้ “ระยะจาก $C$ ไป seed ทุกจุด ไม่ต่างกันมากเกินไปโดยรวม” หรือเทียบเท่าคือ<br>
+        ให้ผลรวมของ “ระยะกำลังสอง” เล็กที่สุด
+      </div>
+    </section>
+
+    <!-- SECTION 2: ทบทวน Voronoi + กรณี 3 จุด -->
+    <section>
+      <h2>2. ทบทวนกรณี 3 จุด: วงกลมผ่าน 3 จุด</h2>
+      <p>
+        สมมติเรามี seed 3 จุด $P_1, P_2, P_3$ บนระนาบ จุด $C$ ที่ห่างจากทั้ง 3 จุดเท่ากัน
+        (เช่นเป็นศูนย์กลางของเสาเซนเซอร์สามหมู่บ้าน) จะทำให้
+      </p>
+      <div class="formula">
+        $\|C - P_1\| = \|C - P_2\| = \|C - P_3\|$
+      </div>
+      <p>
+        จุด $C$ นี้คือศูนย์กลางของวงกลมที่ผ่านทั้ง 3 จุด นี่คือ Voronoi vertex แบบ “สมบูรณ์”
+        (เพราะเป็นจุดที่ “พอ ๆ กัน” ระหว่าง 3 seed แบบ exact)
+      </p>
+      <p class="note">
+        แต่พอเพิ่มเป็น 4 จุดโดยทั่วไป เราจะไม่สามารถหาวงกลมที่ผ่านทั้ง 4 จุดได้พร้อมกัน → สมการ “ระยะเท่ากัน” ขัดแย้งกันเอง
+      </p>
+    </section>
+
+    <!-- SECTION 3: ไอเดีย Least Squares แบบง่าย -->
+    <section>
+      <h2>3. ไอเดีย Least Squares แบบเข้าใจง่าย</h2>
+
+      <h3>3.1 ตัวอย่าง 1 มิติ</h3>
+      <p>
+        ลองคิดแบบง่ายสุดก่อน – มีตัวเลขอยู่บนเส้นจำนวน:
+      </p>
+      <div class="formula">
+        $x_1, x_2, \dots, x_n$
+      </div>
+      <p>
+        อยากหาจุด $c$ จุดเดียว บนเส้นจำนวนที่ “ตัวเลขพวกนี้ไม่ห่างจาก $c$ มากเกินไปโดยรวม”
+        ทำได้โดยทำให้ผลรวมกำลังสองของความคลาดเคลื่อน
+      </p>
+      <div class="formula">
+        $S(c) = \sum_{i=1}^{n} (x_i - c)^2$
+      </div>
+      <p>มีค่าน้อยที่สุด (นี่ป็คือ Least Squares)</p>
+
+      <p>
+        ถ้าดิฟแล้วตั้งเท่ากับศูนย์ จะได้ว่า
+      </p>
+      <div class="formula">
+        $c = \dfrac{1}{n}\sum_{i=1}^{n} x_i$
+      </div>
+      <p>
+        นั่นคือ <b>จุดที่ทำให้ผลรวมกำลังสองเล็กที่สุด = ค่าเฉลี่ย</b> นั่นเอง
+      </p>
+
+      <h3>3.2 ขยายจาก 1D ไป 2D</h3>
+      <p>
+        ถ้าเปลี่ยนจากตัวเลข $x_i$ บนเส้นจำนวน มาเป็นจุดในระนาบ
+      </p>
+      <div class="formula">
+        $P_i = (x_i, y_i), \quad i = 1, 2, \dots, n$
+      </div>
+      <p>
+        แล้วต้องการหาจุดกึ่งกลาง $C = (a, b)$ ที่ทำให้ผลรวมกำลังสองของระยะจากทุกจุดไปที่ $C$ มีค่าน้อยที่สุด
+      </p>
+      <div class="formula">
+        $S(a,b) = \sum_{i=1}^{n} \big\|C - P_i\big\|^2
+        = \sum_{i=1}^{n} \big[(x_i - a)^2 + (y_i - b)^2\big]$
+      </div>
+      <p>
+        ถ้าดิฟเทียบ $a$ และ $b$ แล้วตั้งเท่าศูนย์ (เหมือนทำใน 1D แยกแกน $x$ กับ $y$)
+        จะได้ว่า
+      </p>
+      <div class="formula">
+        $a = \dfrac{1}{n}\sum_{i=1}^{n} x_i, \quad
+         b = \dfrac{1}{n}\sum_{i=1}^{n} y_i$
+      </div>
+      <p>
+        นั่นคือ จุดที่ทำให้ผลรวมกำลังสองของระยะเล็กที่สุดใน 2D ก็คือ
+        <b>จุดศูนย์กลาง (centroid) หรือค่าเฉลี่ยของพิกัดทุกจุด</b>
+      </p>
+    </section>
+
+    <!-- SECTION 4: ประยุกต์กับ seed ของ Voronoi มากกว่า 3 จุด -->
+    <section>
+      <h2>4. ใช้ Least Squares หา “จุดกึ่งกลางเชิงประมาณ” เมื่อ seed &gt; 3 จุด</h2>
+      <p>
+        สมมติเรามี seed (หมู่บ้าน/เซนเซอร์ต้นฉบับ) $k$ จุด:
+      </p>
+      <div class="formula">
+        $P_1, P_2, \dots, P_k \quad (k &gt; 3)$
+      </div>
+
+      <div class="flex-2col">
+        <div>
+          <h3>4.1 คำถามเชิง Voronoi แบบ exact (ทำไม่ได้ทั่วไป)</h3>
+          <p>อยากหาจุด $C$ ที่ทำให้ระยะจาก $C$ ไปทุก $P_i$ เท่ากัน:</p>
+          <div class="formula">
+            $\|C - P_1\| = \|C - P_2\| = \dots = \|C - P_k\|$
+          </div>
+          <p>
+            โดยทั่วไปจะหาไม่ได้ ถ้า seed ไม่ได้อยู่บนวงกลมเดียวกันเป๊ะ ๆ
+          </p>
+        </div>
+        <div>
+          <h3>4.2 คำถามแบบ Least Squares (ทำได้เสมอ)</h3>
+          <p>
+            เปลี่ยนมาหา $C$ ที่ทำให้ผลรวมกำลังสองของระยะจาก $C$ ไป seed ทุกจุด
+          </p>
+          <div class="formula">
+            $S(C) = \sum_{i=1}^{k} \|C - P_i\|^2$
+          </div>
+          <p>มีค่าน้อยที่สุด</p>
+          <p>
+            ตามผลข้อ 3 จะได้ว่า $C$ ที่ตอบโจทย์คือ <b>centroid ของ seed ทั้งหมด</b>:
+          </p>
+          <div class="formula">
+            $C^\ast = \left(\dfrac{1}{k}\sum_{i=1}^{k} x_i \; , \; \dfrac{1}{k}\sum_{i=1}^{k} y_i\right)$
+          </div>
+        </div>
+      </div>
+
+      <div class="example-box">
+        <b>สรุป:</b> เมื่อมี seed มากกว่า 3 จุด เราใช้
+        <b>Least Squares Approximation</b> หาจุดกึ่งกลางเชิงประมาณโดยใช้
+        <b>ค่าเฉลี่ยของพิกัดทุก seed</b> เป็นคำตอบ<br>
+        จุดนี้ไม่ทำให้ระยะ “เท่ากันหมด” แต่ทำให้ “ผลรวมกำลังสองของระยะน้อยที่สุด”
+      </div>
+    </section>
+
+    <!-- SECTION 5: ตัวอย่างตัวเลข -->
+    <section>
+      <h2>5. ตัวอย่างตัวเลข: seed 4 จุด หาจุดกึ่งกลางด้วย Least Squares</h2>
+      <p>
+        สมมติเรามี seed 4 จุด (เช่น หมู่บ้าน 4 หมู่บ้าน) อยู่ที่พิกัดบนระนาบ (หน่วยเป็นกิโลเมตร):
+      </p>
+      <ul>
+        <li>$P_1 = (1, 1)$</li>
+        <li>$P_2 = (4, 1)$</li>
+        <li>$P_3 = (3, 4)$</li>
+        <li>$P_4 = (0, 3)$</li>
+      </ul>
+
+      <h3>5.1 หา centroid (จุดกึ่งกลางแบบ Least Squares)</h3>
+      <p>ใช้สูตร:</p>
+      <div class="formula">
+        $C^\ast = \left(\dfrac{1}{4}\sum_{i=1}^{4} x_i , \dfrac{1}{4}\sum_{i=1}^{4} y_i\right)$
+      </div>
+
+      <p>คำนวณทีละแกน:</p>
+      <ul>
+        <li>แกน $x$: $x_1 + x_2 + x_3 + x_4 = 1 + 4 + 3 + 0 = 8$<br>
+            ดังนั้น $\bar{x} = \dfrac{8}{4} = 2$</li>
+        <li>แกน $y$: $y_1 + y_2 + y_3 + y_4 = 1 + 1 + 4 + 3 = 9$<br>
+            ดังนั้น $\bar{y} = \dfrac{9}{4} = 2.25$</li>
+      </ul>
+
+      <p>ดังนั้นจุดกึ่งกลางเชิง Least Squares คือ</p>
+      <div class="formula">
+        $C^\ast = (2,\; 2.25)$
+      </div>
+
+      <h3>5.2 เช็คระยะ (ดูแนวคิด แต่ไม่ต้องเท่ากันเป๊ะ)</h3>
+      <p>ลองดูระยะจาก $C^\ast$ ไปแต่ละจุด:</p>
+      <ul>
+        <li>$d_1 = \|C^\ast - P_1\| = \sqrt{(2-1)^2 + (2.25-1)^2}$</li>
+        <li>$d_2 = \|C^\ast - P_2\| = \sqrt{(2-4)^2 + (2.25-1)^2}$</li>
+        <li>$d_3 = \|C^\ast - P_3\| = \sqrt{(2-3)^2 + (2.25-4)^2}$</li>
+        <li>$d_4 = \|C^\ast - P_4\| = \sqrt{(2-0)^2 + (2.25-3)^2}$</li>
+      </ul>
+      <p>
+        จะเห็นว่าระยะ $d_i$ แต่ละอัน <b>ไม่เท่ากัน</b> แต่จุดนี้คือจุดที่ทำให้
+      </p>
+      <div class="formula">
+        $S(C) = d_1^2 + d_2^2 + d_3^2 + d_4^2$
+      </div>
+      <p>มีค่าน้อยที่สุดเมื่อเทียบกับจุดอื่น ๆ บนระนาบ (ตามแนวคิด Least Squares)</p>
+    </section>
+
+    <!-- SECTION 6: เชื่อมกับโครงงาน Voronoi + Sensor -->
+    <section>
+      <h2>6. เชื่อมโยงกับโครงงาน Voronoi และการวางเซนเซอร์</h2>
+      <p><b>สถานการณ์จริงในโครงงาน</b> เช่น</p>
+      <ul>
+        <li>เรามีตำแหน่งหมู่บ้านหลายแห่งในอำเภอหนึ่ง</li>
+        <li>อยากหาจุดวาง “เสาเซนเซอร์กลาง” ที่เป็นตัวแทนของหมู่บ้านกลุ่มนั้น</li>
+      </ul>
+
+      <p>
+        ถ้าหมู่บ้านอยู่เยอะกว่า 3 แห่ง และไม่ได้เรียงตัวเป็นวงกลมเดียว เป๊ะ ๆ
+        การหาจุดที่ “ระยะเท่ากันหมด” ทำไม่ได้
+      </p>
+
+      <div class="example-box">
+        <b>แนวคิดประยุกต์:</b><br>
+        ให้หมู่บ้านในกลุ่มหนึ่งเป็นชุด seed $P_1, \dots, P_k$<br>
+        แล้วใช้ Least Squares หา centroid $C^\ast$ ของกลุ่มนี้ เพื่อเป็นตำแหน่งเสาเซนเซอร์
+        หรือจุดกึ่งกลางเชิงประมาณของ Voronoi cell ของกลุ่มนั้น
+      </div>
+
+      <h3>6.1 ขั้นตอนสรุป (ใช้ในงานเขียนรายงาน/โค้ด)</h3>
+      <ol>
+        <li>กำหนดชุด seed (เช่น หมู่บ้านในกลุ่มเดียวกัน) เป็นพิกัด $(x_i, y_i)$, $i = 1,\dots,k$</li>
+        <li>คำนวณค่าเฉลี่ยพิกัด:
+          <div class="formula">
+            $\bar{x} = \dfrac{1}{k}\sum_{i=1}^{k} x_i, \quad
+             \bar{y} = \dfrac{1}{k}\sum_{i=1}^{k} y_i$
+          </div>
+        </li>
+        <li>จุด $(\bar{x}, \bar{y})$ คือจุดที่ทำให้ผลรวมกำลังสองของระยะจาก seed ทุกจุดน้อยที่สุด (Least Squares Center)</li>
+        <li>นำจุดนี้ไปใช้เป็น <b>จุดกึ่งกลางตัวแทน</b> ของกลุ่มในแผนที่ หรือใช้เป็นตำแหน่งเซนเซอร์กลาง</li>
+      </ol>
+
+      <p class="note">
+        ในโค้ดจริง ถ้าใช้หลายกลุ่ม (หลายเซนเซอร์) สามารถใช้แนวคิดเหมือน k-means:
+        แบ่งหมู่บ้านเป็นกลุ่มตามเซนเซอร์ที่ใกล้ที่สุด → หา centroid ของแต่ละกลุ่ม → ย้ายตำแหน่งเซนเซอร์มาที่ centroid
+        → ทำซ้ำจนตำแหน่งนิ่ง
+      </p>
+    </section>
+
+    <!-- SECTION 7: สรุป -->
+    <section>
+      <h2>7. สรุปแนวคิดสั้น ๆ</h2>
+      <ul>
+        <li>Voronoi vertex แบบ exact ใช้ได้ดีเมื่อมี 3 seed (หรือกรณีพิเศษที่หลายจุดอยู่บนวงกลมเดียวกัน)</li>
+        <li>เมื่อมี seed มากกว่า 3 จุดและข้อมูลมีความกระจัดกระจาย เราเปลี่ยนมาใช้แนวคิด <b>Least Squares Approximation</b></li>
+        <li>Least Squares ใน 2D ให้จุดกึ่งกลางที่เป็นค่าเฉลี่ยพิกัด (centroid)</li>
+        <li>จุดนี้ทำให้ผลรวมกำลังสองของระยะจากทุก seed น้อยที่สุด แม้ระยะจะไม่เท่ากันทุกจุดก็ตาม</li>
+        <li>สามารถใช้เป็นจุดกึ่งกลางเชิงประมาณสำหรับ Voronoi cell หรือใช้เป็นตำแหน่งเซนเซอร์กลางในโครงงานจริงได้</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    หน้าเว็บนี้ออกแบบสำหรับใช้สอนแนวคิด Least Squares + Voronoi ในบริบทการวางเซนเซอร์ / จุดบริการบนแผนที่
+  </footer>
+</body>
+</html>
