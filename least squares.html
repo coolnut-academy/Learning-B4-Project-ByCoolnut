@@ -107,10 +107,35 @@
       color: #777;
       padding-bottom: 1.5rem;
     }
+    .back-button {
+      display: inline-block;
+      margin-bottom: 1rem;
+      padding: 0.6rem 1.2rem;
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(10px);
+    }
+    .back-button:hover {
+      background: rgba(255, 255, 255, 0.25);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: translateX(-3px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .back-button::before {
+      content: '← ';
+      margin-right: 0.3rem;
+    }
   </style>
 </head>
 <body>
   <header>
+    <a href="index.html" class="back-button">กลับหน้าหลัก</a>
     <h1>Least Squares Approximation กับจุดกึ่งกลางของ Voronoi (กรณี Seed &gt; 3 จุด)</h1>
     <p>ทำไมพอมี seed มากกว่า 3 จุดแล้วใช้วงกลมผ่านทุกจุดไม่ได้ และ Least Squares เข้ามาช่วยหาจุดกึ่งกลาง “เชิงประมาณ” ได้อย่างไร</p>
   </header>
